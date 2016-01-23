@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+	<title>移动端图片轮播插件imageSwiper</title>
+	<style type="text/css">
+		*{margin:0; padding:0; box-sizing: border-box;}
+		ul>li{list-style:none;}
+		html,body{width:100%; height:100%; font-size: 10px;}
+		/*轮播插件布局css*/
+		.swiperBox{position:relative; width:100%; height:100%; overflow: hidden;}
+		.swiperBox .imgs{width:400%; height:100%; display:-webkit-flex; display:flex;}
+		.swiperBox .imgs .img{height:100%; -webkit-flex:1 0 0; flex:1 0 0; background-repeat: no-repeat; background-position: center; background-size: 100% 100%;-webkit-transition: all .9s linear; transition: all .6s linear;}
+		.swiperBox .pagination{position:absolute; width:25%; bottom:1rem; left:0; right:0; margin:0 auto;  display:-webkit-flex; display:flex; overflow: hidden; -webkit-justify-content:space-around; justify-content:space-around;}
+		.swiperBox .pagination .pagination-dot{width:1rem; height:1rem; background: #fff; border-radius: 50%;}
+		.swiperBox .pagination .pagination-dot.active{background: #61E0DA;}
+		/*设置轮播图片*/
+		.swiperBox .imgs .img.one{background-image:url('images/image-1.jpg');}
+		.swiperBox .imgs .img.two{background-image:url('images/image-2.jpg');}
+		.swiperBox .imgs .img.three{background-image:url('images/image-3.jpg');}
+		.swiperBox .imgs .img.four{background-image:url('images/image-4.jpg');}
+	</style>
+</head>
+<body>
+	<!-- 轮播插件布局 -->
+	<!-- 使用插件时只需设置父级元素宽高即可 -->
+	<div id="mybox" class="content" style="width:100%; height:50%;">
+		<div class="swiperBox">
+			<!-- 轮播图片 -->
+			<div class="imgs">
+				<div class="img one"></div>
+				<div class="img two"></div>
+				<div class="img three"></div>
+				<div class="img four"></div>
+			</div>
+			<!-- 轮播页数小点 -->
+			<ul class="pagination">
+				<li class="pagination-dot active"></li>
+				<li class="pagination-dot"></li>
+				<li class="pagination-dot"></li>
+				<li class="pagination-dot"></li>
+			</ul>
+		</div>
+	</div>
+	<script type="text/javascript">
+
+		//轮播插件js封装
+		// parentElement：传入插件所在节点元素;   
+		//	options：设置参数对象(minRange:最小移动距离，默认为0;
+		//								    direction:轮播切换方式,0为横向：1为纵向,默认为0
+		//								    )
+		(function(window){
+			function imageSwiper(parentElement,options){
+				this.eles=this.getElement(parentElement);
+				this.imgsBox=this.eles[0];
+				this.pageBox=this.eles[1];
+				this.ready_moved=true;//判断每次滑动的标记变量
+				this.clone_moved=false;//怕判断是否允许克隆变化位置
+				this.preClone=true;//记录克隆节点
+				this.nextClone=true;//记录克隆节点
+				this.cloneEle=null;//存储克隆节点
+				this.imgs=this.imgsBox.children;
+				this.imgsLength=this.imgs.length;
+				this.minRange=Number(options.minRange)||0;
+				this.touchX;//触控开始的最初落点X轴的值
+				this.touchY;//触控开始的最初落点Y轴的值
+				this.oldX;//imgsBox触控前的translate中X轴的值
+				this.oldY;//imgsBox触控前的translate中Y轴的值
+				this.startTime;//触摸开始的时间
+				this.imgIndex=0;
+				this.width=this.imgsBox.children[0].offsetWidth;
+				this.height=this.imgsBox.children[0].offsetHeight;
+				this.direction=Number(options.direction)||0;//轮播切换的方式，0为横向：1为纵向
+				this.bindTouchEvent();//初始化轮播插件
+			};
+			//获取插件中的imgs节点和pagination节点，返回结果数组
+			imageSwiper.prototype.getElement=function(parentElement){
+				var result=[],
+					 imgs=document.querySelector(parentElement+' .imgs'),
+					 pages=document.querySelector(parentElement+' .pagination');
+				result.push(imgs);
+				result.push(pages);
+				return result;
+			};
+			// 处理translate3d值
+			imageSwiper.prototype.dispose=function (translate3d){
+				var result,
+					 a=translate3d.replace('translate3d(', ''),
+					 array=a.substring(0,a.length-1).split(', ');
+				result=array.map(function(item){
+					return parseFloat(item);
+				});
+				return result;
+			};
+			//处理并渲染克隆节点
+			imageSwiper.prototype.cloneElement=function(imgsLength,attr,location){
+				if(location=='pre'){
+					this.imgsBox.insertBefore(this.cloneEle,this.imgs[0]);
+					this.imgsBox.style[attr]=imgsLength+1+'00%';
+					this.oldX=this[attr]*-1;
+					this.preClone=false;
+				}else if(location=='next'){
+					this.imgsBox.appendChild(this.cloneEle);
+					this.imgsBox.style[attr]=imgsLength+1+'00%';
+					this.nextClone=false;
+				}
+			};
+			//处理页号
+			imageSwiper.prototype.pagination=function(){
+				var pages=this.pageBox.getElementsByTagName('li'),
+					 imgIndex=this.imgIndex;
+				Array.prototype.forEach.call(pages,function(element,index){
+					if(element.classList.contains('active'))
+						element.classList.remove('active');
+					if(index==imgIndex)
+						element.classList.add('active');
+				});
+			};
+			//css3动画结束事件
+			imageSwiper.prototype.myAnimationEnd=function(){
+				this.imgsBox.style.transitionDuration="0ms";
+				if((this.imgIndex==0||this.imgIndex==3)&&this.cloneEle!=null&&this.clone_moved){
+					if(!this.preClone){
+						//克隆了最后一个节点
+						this.imgsBox.removeChild(this.cloneEle);
+						this.preClone=true;
+						this.cloneEle=null;
+						if(this.direction===0){
+							operation(this.imgsBox,'width',(this.imgsLength-1)*(this.width)*-1);
+						}else{
+							operation(this.imgsBox,'height',(this.imgsLength-1)*(this.height)*-1);
+						}
+					}else if(!this.nextClone){
+						this.imgsBox.removeChild(this.cloneEle);
+						this.nextClone=true;
+						this.cloneEle=null;
+						if(this.direction===0){
+							operation(this.imgsBox,'width',0);
+						}else{
+							operation(this.imgsBox,'height',0);
+						}
+					}
+					this.clone_moved=false;
+				}
+				this.ready_moved=true;
+				function operation(element,attr,value){
+					element.style[attr]=element.children.length+'00%';
+					if(attr==='width'){
+						element.style.transform="translate3d( "+value+"px, 0px, 0px)";
+					}else if(attr==='height'){
+						element.style.transform="translate3d(0px, "+value+"px, 0px)";
+					}
+				}
+			};
+			//绑定事件
+			imageSwiper.prototype.bindTouchEvent=function(){
+				this.imgsBox.addEventListener('touchstart', this.touchstart.bind(this),false);
+				this.imgsBox.addEventListener('touchmove', this.touchmove.bind(this),false);
+				this.imgsBox.addEventListener('touchend',this.touchend.bind(this),false);
+				this.imgsBox.addEventListener('webkitTransitionEnd',this.myAnimationEnd.bind(this),false);
+			};
+			//手指点击事件函数
+			imageSwiper.prototype.touchstart=function(e){
+				e.preventDefault();
+				if(this.ready_moved){
+					var touch=e.targetTouches[0],
+						 target=this.imgsBox;
+					this.touchX=touch.pageX;
+					this.touchY=touch.pageY;
+					this.oldX=(this.dispose(target.style.transform))[0]||0;
+					this.oldY=(this.dispose(target.style.transform))[1]||0;
+					this.startTime=new Date();
+					this.ready_moved=false;
+					return;
+				}
+				this.ready_moved=true;
+			};
+			//手指移动事件函数
+			imageSwiper.prototype.touchmove=function(e){
+				e.preventDefault();
+				var touch=e.changedTouches[0],
+					 imgsLength=this.imgs.length,
+					 moveX=touch.pageX-this.touchX,//触控点拖动的X轴距离
+					 moveY=touch.pageX-this.touchY,//触控点拖动的X轴距离
+					 newX,
+					 newY;
+				if(!this.ready_moved){
+					if(this.imgIndex==imgsLength-1&&this.nextClone){
+						this.cloneEle=this.imgs[0].cloneNode(true);
+						if(this.direction===0&&moveX<0){
+							this.cloneElement(imgsLength,'width','next'); 
+						}
+						else if(this.direction===1&&moveY<0){
+							this.cloneElement(imgsLength,'height','next'); 
+						}
+					}else if(this.imgIndex==0&&this.preClone){
+						this.cloneEle=this.imgs[imgsLength-1].cloneNode(true);
+						if(this.direction===0&&moveX>0)
+							this.cloneElement(imgsLength,'width','pre'); 
+						else if(this.direction===1&&moveY>0)
+							this.cloneElement(imgsLength,'height','pre'); 
+					}
+					if(this.direction==1){
+						//纵向方式切换
+						newY=this.oldX+moveY;
+						this.imgsBox.style.transform="translate3d(0px, "+newY+"px, 0px)";
+					}else{
+						//横向切换
+						newX=this.oldX+moveX;
+						this.imgsBox.style.transform="translate3d( "+newX+"px, 0px, 0px)";
+					}
+					this.imgsBox.style.transitionDuration="0ms";
+				}
+			};
+			//手指离开事件函数
+			imageSwiper.prototype.touchend=function(e){
+				e.preventDefault();
+				var touch=e.changedTouches[0],
+					 nowX=touch.pageX,//当前触控点的X轴的值
+					 nowY=touch.pageY,//当前触控点的Y轴的值
+					 moveX=nowX-this.touchX,//触控点拖动的X轴距离
+					 moveY=nowY-this.touchY,//触控点拖动的X轴距离
+					 speedX=Math.abs(moveX)/(new Date()-this.startTime),//手指移动速度
+					 speedY=Math.abs(moveY)/(new Date()-this.startTime),//手指移动速度
+					 newX,
+					 newY;
+				if(!this.ready_moved){
+					this.imgsBox.style.transitionDuration="300ms";
+					if(this.direction==1){
+						//纵向方式切换
+						this.imgsBox.style.transform="translate3d( 0px,  "+this.oldY+"px, 0px)";
+					}else{
+						//横向切换
+						this.imgsBox.style.transform="translate3d( "+this.oldX+"px, 0px, 0px)";
+						if(Math.abs(moveX)>this.minRange||speedX>0.65){
+							if(moveX>0){
+								//向右拖
+								newX=this.oldX+this.width;
+								this.imgIndex=this.imgIndex==0?this.imgsLength-1:--this.imgIndex;
+							}else{
+								//向左拖
+								newX=this.oldX-this.width;
+								this.imgIndex=this.imgIndex==this.imgsLength-1?0:++this.imgIndex;
+							}
+							this.pagination();
+							this.imgsBox.style.transform="translate3d( "+newX+"px, 0px, 0px)";
+							this.clone_moved=true;
+						}
+					}
+				}
+			};
+			window.imageSwiper=imageSwiper;
+		})(window);
+		var imgs=new imageSwiper('#mybox',{minRange:180});
+	</script>
+</body>
+</html>
