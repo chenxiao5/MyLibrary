@@ -41,5 +41,5 @@
 ## 问题反馈
 有问题请联系邮箱：chenxiaowuemail@163.com
 
-[demo]:https://github.com/chenxiao5/MyLibrary/blob/master/customCanvasClock/demo.html
+[demo]:https://htmlpreview.github.io/?https://github.com/chenxiao5/MyLibrary/blob/master/customCanvasClock/demo.html
 
