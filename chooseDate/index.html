@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+</head>
+
+<body>
+    <script type="text/javascript">
+    /*
+     * 日期选项 
+     */
+
+    (function(appcan, win, firstDay, endDay) {
+
+        var date = new Date();
+
+        var number = 4; //显示月份数
+
+        var size = {}; //日期选项规格
+
+        var firstLock = false, //入住锁
+            endLock = false; //离店锁
+
+        firstDay = firstDay || new Date(); //入住时间
+        endDay = endDay || new Date().setDate(firstDay.getDate() + 1); //离店时间
+
+
+        /*
+         * 初始化日期列表
+         */
+
+        function init() {
+
+            randomChooseDate(); //渲染日历选项
+            resizeFirstDay(); //调节首日位置
+            addEvent(); //绑定点击事件
+        };
+
+
+        /*
+         * 获取并格式化日期（2016-3-28）
+         */
+
+        function getDateData(date) {
+
+            var _y = date.getFullYear();
+            var _m = date.getMonth() + 1;
+            var _d = date.getDate();
+
+            _m = _m < 10 ? '0' + _m : _m;
+            _d = _d < 10 ? '0' + _d : _d;
+
+            return _y + '-' + _m + '-' + _d;
+        };
+
+        /*
+         * 创建日期数据
+         * @param {number} months : 要展示的月份个数
+         */
+
+        function buildDateData(months) {
+            var _returnDate = {},
+                _nowMonth = date.getMonth() + 1,
+                _thanMonth = 1,
+                _thanYM = '',
+                _firstDate = new Date(),
+                _dataArr = [];
+
+            _firstDate.setFullYear(date.getFullYear(), date.getMonth(), 1);
+
+            while (true) {
+
+                _thanMonth = (_firstDate.getMonth() + 1);
+                _thanYM = _firstDate.getFullYear() + '年' + _thanMonth + '月';
+
+                if ((_thanMonth - _nowMonth) < months) {
+
+                    if (!_returnDate[_thanYM]) {
+
+                        _returnDate[_thanYM] = [];
+                    }
+                    var time = getDateData(_firstDate);
+                    _returnDate[_thanYM].push(time);
+                } else {
+                    break;
+                }
+                _firstDate.setDate(_firstDate.getDate() + 1);
+            }
+            return _returnDate;
+        };
+
+        /*
+         * 渲染方法
+         * @param {HTMLElement} parent : 要添加内容的父级节点
+         * @param {string} tag : 要添加的节点标签名
+         * @param {JSON} data : 要添加的节点的数据
+         *                          {
+         *                              text : '',
+         *                              class : '',
+         *                              ...(以及基于html标准属性名格式的属性)                                 
+         *                          }
+         */
+
+        function randomElement(parent, tag, data) {
+
+            var _childEle;
+
+            parent = !parent ? document : parent;
+            tag = !tag ? 'div' : tag;
+            data = !data ? {} : data;
+
+            _childEle = document.createElement(tag);
+
+            for (var key in data) {
+
+                if (key === 'text') {
+                    _childEle.innerHTML = data[key];
+                } else {
+                    _childEle.setAttribute(key, data[key]);
+                }
+            }
+
+            parent.appendChild(_childEle);
+            return parent;
+        };
+
+        /*
+         * 渲染日期选项
+         */
+
+        function randomChooseDate() {
+
+            var _boxEle = document.querySelector('#date-items'),
+                _liFragment = document.createDocumentFragment(),
+                dateData = buildDateData(number);
+
+            for (var key in dateData) {
+
+                randomElement(_boxEle, 'div', {
+                    'text': '<div class="mouth">' + '<span>' + key + '</span>' + '</div>' + '<ul class="days">' + '</ul>',
+                    'class': 'date-items-item',
+                    'data-name': key
+                });
+
+            }
+
+            sizeAuto();
+
+            var ulBox = document.querySelectorAll('#date-items .days'),
+                nowDay = date.getDate(),
+                nowY = date.getFullYear(),
+                nowM = date.getMonth() + 1,
+                firstM = new Date(firstDay).getMonth() + 1,
+                firstD = new Date(firstDay).getDate(),
+                firstY = new Date(firstDay).getFullYear(),
+                endM = new Date(endDay).getMonth() + 1,
+                endD = new Date(endDay).getDate(),
+                endY = new Date(endDay).getFullYear();
+
+
+            for (var i = 0, j = ulBox.length; i < j; i++) {
+
+                var name = ulBox[i].parentNode.getAttribute('data-name');
+
+                for (var n = 0, m = dateData[name].length; n < m; n++) {
+
+                    var options = {
+                        'text': '<div class="ub ub-pc">' + '<span>' + (n + 1) + '</span>' + '</div>',
+                        'class': 'days-item',
+                        'data-day': dateData[name][n]
+                    };
+
+                    if (i === 0 && (n + 1) < nowDay) {
+
+                        options['class'] = 'days-item vain';
+                    }
+
+                    if (i === 0 && (n + 1) === nowDay) {
+
+                        options['text'] = '<div class="ub ub-pc">' + '<span>今天</span>' + '</div>';
+                    }
+
+                    if (nowY === firstY && i === (firstM - nowM) && (n + 1) === firstD) {
+
+                        options['class'] = 'days-item first';
+                    }
+
+                    if (nowY === endY && i === (endM - nowM) && (n + 1) === endD) {
+
+                        options['class'] = 'days-item end';
+                    }
+
+                    randomElement(ulBox[i], 'li', options);
+                }
+            }
+
+        };
+
+        /*
+         * 调节日期与星期对应
+         */
+
+        function resizeFirstDay() {
+
+            var _dateItems = document.querySelectorAll('#date-items .date-items-item'),
+                _dayItem = null,
+                _dayDate = null,
+                _week = 0;
+            //debugger;
+            for (var i = 0, j = _dateItems.length; i < j; i++) {
+
+                _dayItem = _dateItems[i].getElementsByTagName('ul')[0].firstChild;
+                _dayDate = new Date(_dayItem.getAttribute('data-day'));
+                _week = _dayDate.getDay();
+
+                _dayItem.style.marginLeft = size['width'] * _week + '%';
+            }
+
+        };
+
+        /*
+         * 实时修改规格参数
+         */
+
+        function sizeAuto() {
+
+            var _boxEle = document.querySelector('#date-items .days'),
+                _width = 0;
+
+            _width = 100 / 7;
+
+            size['width'] = _width;
+        };
+
+        /*
+         * 判断元素及其在指定范围内的父元素是否存在指定class名,返回对象{element：存在节点，result：是否存在}
+         * @param {HTMLElement} element : 元素节点
+         * @param {HTMLElement} limitEle : 限制范围节点
+         * @param {String} className : 条件
+         */
+
+        function isHasContains(element, limitEle, className) {
+
+            var _result = {};
+
+            if (element === limitEle) {
+
+                _result['element'] = null;
+                _result['result'] = false;
+            } else {
+
+                if (element.className.indexOf(className) !== -1) {
+
+                    _result['element'] = element;
+                    _result['result'] = true;
+                } else {
+
+                    _result = arguments.callee(element.parentNode, limitEle, className);
+                }
+            }
+            return _result;
+        }
+
+        /*
+         * 事件代理
+         * @param {HTMLElement} parent : 事件代理节点
+         * @param {String} className : 触发节点标志class
+         * @param {String} event : 触发事件类型
+         * @param {Function} listener : 回调函数
+         */
+
+        function delegateEvent(parent, className, event, listener) {
+
+            parent.addEventListener(event, function(e) {
+
+                var _target = e.target,
+                    _result = isHasContains(_target, parent, className);
+
+                if (!_result['result']) {
+
+                    return;
+                } else {
+
+                    listener.call(_target, e, _result['element']);
+                }
+            }, false);
+        };
+
+        /*
+         * 日期选项点击事件交互效果部分
+         */
+
+        function clickEvent(event, element) {
+
+            var _className = '',
+                _select = element.getAttribute('data-day');
+
+            /*
+             * 清除样式
+             */
+
+            function clearClass() {
+
+                var _allDaysItem = document.querySelectorAll('#date-items .days-item');
+
+                for (var i = 0, j = _allDaysItem.length; i < j; i++) {
+
+                    if (_allDaysItem[i].classList.contains('first')) {
+
+                        _allDaysItem[i].classList.remove('first');
+                    } else if (_allDaysItem[i].classList.contains('end')) {
+
+                        _allDaysItem[i].classList.remove('end');
+                    }
+                }
+            }
+
+            /*
+             * 入住时间及离开时间选完成后的回调事函数
+             */
+
+            function isOk() {
+
+                publicAPI();
+                alert('已经选完了');
+                console.log(win.selectDate);
+            };
+
+            if (!firstLock) {
+
+                firstDay = new Date(_select);
+                endDay = new Date(_select).setDate(new Date(_select).getDate() + 1);
+                _className = 'first';
+                firstLock = true;
+                clearClass();
+            } else {
+                if (new Date(_select) < firstDay) {
+
+                    firstDay = new Date(_select);
+                    endDay = new Date(_select).setDate(new Date(_select).getDate() + 1);
+                    _className = 'first';
+                    endLock = false;
+
+                    clearClass();
+
+                } else if (!endLock && _select !== getDateData(firstDay)) {
+
+                    endDay = new Date(_select);
+                    _className = 'end';
+                    endLock = true;
+                    element.classList.add(_className);
+
+                    isOk();
+                    return;
+                }
+            }
+            element.classList.add(_className);
+
+        };
+
+        /*
+         * 日期选项点击事件与其它页面交互部分
+         */
+
+        function clickEvent2(event, element) {
+
+            if (!firstLock) {
+
+                uescript('choosedate', 'selectFirst()');
+            } else {
+
+                uescript('choosedate', 'selectEnd()');
+            }
+        };
+
+        /*
+         * 绑定日期选项点击事件
+         */
+
+        function addEvent() {
+
+            var _chooseDate = document.getElementById('date-items');
+            //debugger;
+            delegateEvent(_chooseDate, 'days-item', 'click', function(e, element) {
+
+                var _selectDate = new Date(element.getAttribute('data-day')),
+                    _selectDay = _selectDate.getDate(),
+                    _selectMonth = _selectDate.getMonth();
+
+                if (_selectMonth === date.getMonth() && _selectDay < date.getDate()) {
+
+                    return;
+                } else {
+
+                    clickEvent(e, element);
+                    clickEvent2(e, element);
+                }
+            });
+        };
+
+        init();
+
+        /*
+         * 对外接口，返回所选日期参数
+         */
+        function publicAPI() {
+
+            win.selectDate = {
+                firstDay: firstDay,
+                endDay: endDay
+            };
+        };
+    })(appcan, window);
+    </script>
+</body>
+
+</html>
